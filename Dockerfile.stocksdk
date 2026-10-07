@@ -1,0 +1,45 @@
+FROM ghcr.io/shy3130/tick-stock-panel:latest
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends nodejs npm \
+    && rm -rf /var/lib/apt/lists/* \
+    && node --version && npm --version
+WORKDIR /app/app/plugins/stocksdk
+RUN npm config set registry https://registry.npmmirror.com \
+    && npm ci --omit=dev \
+    && node -e "import('stock-sdk').then(() => console.log('stock-sdk import OK'))"
+COPY backend/app/plugins/stocksdk/bridge.mjs /app/app/plugins/stocksdk/bridge.mjs
+COPY backend/app/plugins/stocksdk/provider.py /app/app/plugins/stocksdk/provider.py
+COPY backend/app/plugins/stocksdk/index_daily.py /app/app/plugins/stocksdk/index_daily.py
+COPY backend/app/plugins/stocksdk/plugin.yaml /app/app/plugins/stocksdk/plugin.yaml
+COPY backend/app/plugins/fuyao/provider.py /app/app/plugins/fuyao/provider.py
+COPY backend/app/plugins/fuyao/plugin.yaml /app/app/plugins/fuyao/plugin.yaml
+COPY backend/app/services/data_integrity.py /app/app/services/data_integrity.py
+COPY backend/app/services/financial_sync.py /app/app/services/financial_sync.py
+COPY backend/app/services/preferences.py /app/app/services/preferences.py
+COPY backend/app/services/instrument_sync.py /app/app/services/instrument_sync.py
+COPY backend/app/services/index_sync.py /app/app/services/index_sync.py
+COPY backend/app/services/kline_sync.py /app/app/services/kline_sync.py
+COPY backend/app/services/quote_service.py /app/app/services/quote_service.py
+COPY backend/app/services/email_adapter.py /app/app/services/email_adapter.py
+COPY backend/app/services/webhook_adapter.py /app/app/services/webhook_adapter.py
+COPY backend/app/services/tool_catalog.py /app/app/services/tool_catalog.py
+COPY backend/app/services/strategy_review.py /app/app/services/strategy_review.py
+COPY backend/app/strategy/paper.py /app/app/strategy/paper.py
+COPY backend/app/strategy/paper_auto.py /app/app/strategy/paper_auto.py
+COPY backend/app/backtest/walkforward.py /app/app/backtest/walkforward.py
+COPY backend/app/data_providers/capabilities.py /app/app/data_providers/capabilities.py
+COPY backend/app/data_providers/registry.py /app/app/data_providers/registry.py
+RUN rm -f /app/app/data_providers/tickflow_provider.py
+COPY backend/app/tickflow/client.py /app/app/tickflow/client.py
+COPY backend/app/tickflow/policy.py /app/app/tickflow/policy.py
+COPY backend/app/api/settings.py /app/app/api/settings.py
+COPY backend/app/api/paper.py /app/app/api/paper.py
+COPY backend/app/api/pipeline.py /app/app/api/pipeline.py
+COPY backend/app/api/routes.py /app/app/api/routes.py
+COPY backend/app/api/indices.py /app/app/api/indices.py
+COPY backend/app/api/kline.py /app/app/api/kline.py
+COPY backend/app/jobs/daily_pipeline.py /app/app/jobs/daily_pipeline.py
+COPY backend/app/main.py /app/app/main.py
+COPY frontend/dist/ /app/static/
+WORKDIR /app

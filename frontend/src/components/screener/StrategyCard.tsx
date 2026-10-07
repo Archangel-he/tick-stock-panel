@@ -1,0 +1,237 @@
+import { Settings2, TrendingDown, RadioTower } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { storage } from '@/lib/storage'
+
+// ===== 卡片尺寸 =====
+
+export type CardSize = 'mini' | 'normal' | 'large' | 'hidden'
+
+export function loadCardSize(): CardSize {
+  const v = storage.screenerCardSize.get('normal')
+  if (v === 'mini' || v === 'normal' || v === 'large' || v === 'hidden') return v
+  return 'normal'
+}
+
+const CARD_STYLES: Record<CardSize, {
+  wrap: string
+  card: string
+  name: string
+  count: string
+  desc: string
+  icon: string
+}> = {
+  mini: {
+    wrap: 'gap-1',
+    card: 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full',
+    name: 'text-[10px]',
+    count: 'text-[11px]',
+    desc: '',
+    icon: 'h-3 w-3',
+  },
+  normal: {
+    wrap: 'gap-3',
+    card: 'strategy-card relative flex min-w-0 flex-col rounded-xl p-4',
+    name: 'text-xs',
+    count: 'text-xs',
+    desc: 'text-[10px] text-muted leading-tight mt-0.5 line-clamp-1 max-w-[120px]',
+    icon: 'h-3.5 w-3.5',
+  },
+  large: {
+    wrap: 'gap-2',
+    card: 'relative inline-flex flex-col items-start pl-3.5 pr-12 py-2.5 rounded-btn min-w-[100px]',
+    name: 'text-xs',
+    count: 'text-lg font-mono font-bold tabular-nums',
+    desc: 'text-[10px] text-muted leading-tight mt-0.5 line-clamp-2 max-w-[140px]',
+    icon: 'h-3.5 w-3.5',
+  },
+  hidden: {
+    wrap: '',
+    card: '',
+    name: '',
+    count: '',
+    desc: '',
+    icon: '',
+  },
+}
+
+export { CARD_STYLES }
+
+/** 获取卡片容器的 flex-wrap gap 样式 */
+export function cardWrapCls(size: CardSize): string {
+  return size === 'normal' ? 'grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3' : `flex flex-wrap ${CARD_STYLES[size].wrap}`
+}
+
+// ===== 来源标签 =====
+
+const SRC_MAP: Record<string, string> = { builtin: '内置', custom: '自定义', ai: 'AI', composite: '叠加' }
+const BADGE_CLS_MAP: Record<string, string> = {
+  builtin: 'bg-secondary/10 text-muted border-border',
+  ai: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+  custom: 'bg-amber-400/10 text-amber-400 border-amber-400/30',
+  composite: 'bg-teal-500/10 text-teal-400 border-teal-500/30',
+}
+
+// ===== 策略卡片 =====
+
+interface StrategyCardProps {
+  name: string
+  description?: string
+  source?: string
+  active: boolean
+  count?: number
+  /** 今日曾命中总数 */
+  everMatched?: number
+  /** 今日已失效数 (曾命中 - 当前命中) */
+  expiredCount?: number
+  loading: boolean
+  cardSize: CardSize
+  onRun: () => void
+  disabled: boolean
+  onSettings: () => void
+  /** 是否已加入策略监控 */
+  monitored?: boolean
+  /** 切换策略监控 (点击 RadioTower 图标) */
+  onToggleMonitor?: () => void
+  /** 周期徽章 (如 '分钟'); 日线策略不传 */
+  timeframeBadge?: string
+  /** 后台计算中 (渐进式 run_all): 数字未出时显示脉冲占位 */
+  computing?: boolean
+  /** 等待运行 (自动计算关闭/失败时的分钟策略): 数字未出时显示「待计算」点击引导 */
+  awaitRun?: boolean
+}
+
+export function StrategyCard({
+  name, description, source, active, count, expiredCount,
+  loading, cardSize,
+  onRun, disabled, onSettings, monitored, onToggleMonitor, timeframeBadge, computing, awaitRun,
+}: StrategyCardProps) {
+  const cs = CARD_STYLES[cardSize]
+  const activeCls = active
+    ? 'border-accent/60 bg-accent/[0.045]'
+    : 'border-border/80 bg-surface hover:border-accent/35'
+  const countCls = count === 0
+    ? 'text-muted'
+    : 'text-accent'
+  const srcLabel = cardSize === 'mini' ? (SRC_MAP[source ?? ''] ?? '内') : (SRC_MAP[source ?? ''] ?? '内置')
+  const badgeCls = BADGE_CLS_MAP[source ?? 'builtin'] ?? BADGE_CLS_MAP.builtin
+
+  // 失效数 > 0 时显示
+  const hasExpired = expiredCount != null && expiredCount > 0
+
+  return (
+    <motion.div
+      initial={false}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+      className={`${cs.card} border transition-all duration-150 text-left group ${activeCls}`}
+    >
+      {cardSize === 'large' ? (
+        <>
+          <button onClick={onRun} disabled={disabled}
+            className="flex flex-col items-start cursor-pointer disabled:opacity-50 disabled:cursor-wait w-full">
+            <div className="flex items-center gap-1.5 max-w-full">
+              <span className={`text-[9px] px-1 py-px rounded border font-medium leading-tight shrink-0 ${badgeCls}`}>{srcLabel}</span>
+              {timeframeBadge && (
+                <span className="text-[9px] px-1 py-px rounded border font-medium leading-tight shrink-0 border-sky-500/30 bg-sky-500/10 text-sky-400">{timeframeBadge}</span>
+              )}
+              <span className="text-xs font-medium truncate text-foreground">{name}</span>
+            </div>
+            {description && (
+              <span className="text-[10px] text-muted leading-tight mt-0.5 line-clamp-1">{description}</span>
+            )}
+            {count != null && !loading && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className={`text-sm font-mono font-bold tabular-nums ${countCls}`}>{count}</span>
+                  <span className="text-[10px] text-muted">只</span>
+                </div>
+                {hasExpired && (
+                  <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-500/8 border border-red-500/15">
+                    <TrendingDown className="h-2.5 w-2.5 text-red-400" />
+                    <span className="text-[10px] font-mono font-medium text-red-400">{expiredCount}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {count == null && !loading && computing && (
+              <span className="mt-1.5 text-sm font-mono font-bold text-muted/50 animate-pulse">···</span>
+            )}
+            {count == null && !loading && !computing && awaitRun && (
+              <span className="mt-1.5 text-[10px] text-muted/60 transition-colors group-hover:text-accent/80" title="自动计算未开启或失败 — 点击卡片实时计算">待计算</span>
+            )}
+            {loading && <div className="mt-1 h-4 w-10 rounded bg-elevated animate-pulse" />}
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onSettings() }}
+            className="absolute top-1.5 right-1.5 p-0.5 rounded hover:bg-elevated transition-colors cursor-pointer" title="策略设置">
+            <Settings2 className="h-3 w-3 text-muted hover:text-accent transition-colors" />
+          </button>
+          {onToggleMonitor && (
+            <button onClick={(e) => { e.stopPropagation(); onToggleMonitor() }}
+              className="absolute top-1.5 right-7 p-0.5 rounded hover:bg-elevated transition-colors cursor-pointer" title={monitored ? '取消策略监控' : '开启策略监控'}>
+              <RadioTower className={`relative h-3 w-3 transition-colors ${monitored ? 'text-accent' : 'text-muted hover:text-accent'}`} />
+              {monitored && <span className="absolute inset-0 rounded animate-ping bg-accent/20" />}
+            </button>
+          )}
+        </>
+      ) : cardSize === 'normal' ? (
+        <>
+          <button onClick={onRun} disabled={disabled} aria-pressed={active}
+            className="flex w-full min-w-0 flex-1 flex-col items-start text-left cursor-pointer disabled:opacity-50 disabled:cursor-wait">
+            <div className="flex w-full items-start justify-between gap-3">
+              <span className="text-[14px] font-semibold tracking-tight text-foreground">{name}</span>
+              <span className="shrink-0 text-[10px] text-muted">{timeframeBadge ?? '日线'}</span>
+            </div>
+            {description && <span className="mt-2 min-h-9 text-[11px] leading-[18px] text-secondary line-clamp-2" title={description}>{description}</span>}
+            <div className="mt-3 flex items-center gap-1.5">
+              {count != null && !loading && <><span className={'text-lg font-semibold tabular-nums ' + countCls}>{count}</span><span className="text-[10px] text-muted">个结果</span></>}
+              {count == null && !loading && computing && <span className="text-sm text-muted animate-pulse">···</span>}
+              {count == null && !loading && !computing && awaitRun && <span className="text-xs text-accent">待计算</span>}
+              {loading && <span className="h-5 w-16 animate-pulse rounded bg-elevated" />}
+              {hasExpired && <span className="ml-2 text-[10px] text-muted">{expiredCount} 已失效</span>}
+            </div>
+          </button>
+          <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-2">
+            <span className="text-[10px] text-muted">{active ? '● 当前选中' : srcLabel}</span>
+            <div className="flex items-center gap-2">
+              {onToggleMonitor && <button onClick={onToggleMonitor} className="rounded p-1 text-muted hover:text-accent" title={monitored ? '取消策略监控' : '开启策略监控'}><RadioTower className={'h-3 w-3 ' + (monitored ? 'text-accent' : '')} /></button>}
+              <button onClick={onSettings} className="rounded p-1 text-muted hover:text-accent" title="策略设置"><Settings2 className="h-3 w-3" /></button>
+            </div>
+          </div>
+        </>
+      ) : (
+        /* mini */
+        <>
+          <button onClick={onRun} disabled={disabled}
+            className="flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-wait">
+            <span className="text-[8px] px-0.5 rounded bg-secondary/10 text-muted border border-border font-medium leading-tight">{srcLabel}</span>
+            <span className="text-[10px] font-medium whitespace-nowrap text-foreground">{name}</span>
+            {count != null && !loading && (
+              <span className={`text-xs font-mono font-bold tabular-nums ${countCls}`}>{count}</span>
+            )}
+            {count == null && !loading && computing && (
+              <span className="text-xs font-mono font-bold text-muted/50 animate-pulse">···</span>
+            )}
+            {count == null && !loading && !computing && awaitRun && (
+              <span className="text-[9px] text-muted/60 transition-colors group-hover:text-accent/80 shrink-0" title="自动计算未开启或失败 — 点击卡片实时计算">待算</span>
+            )}
+            {hasExpired && (
+              <span className="text-[9px] font-mono text-red-400/70">{'-' + expiredCount}</span>
+            )}
+            {loading && <span className="w-4 h-2.5 rounded bg-elevated animate-pulse" />}
+          </button>
+          {onToggleMonitor && (
+            <button onClick={(e) => { e.stopPropagation(); onToggleMonitor() }}
+              className="relative p-0.5 rounded hover:bg-elevated transition-colors cursor-pointer" title={monitored ? '取消策略监控' : '开启策略监控'}>
+              <RadioTower className={`h-3 w-3 transition-colors ${monitored ? 'text-accent' : 'text-muted hover:text-accent'}`} />
+              {monitored && <span className="absolute inset-0 rounded animate-ping bg-accent/20" />}
+            </button>
+          )}
+          <button onClick={(e) => { e.stopPropagation(); onSettings() }}
+            className="p-0.5 rounded hover:bg-elevated transition-colors cursor-pointer" title="策略设置">
+            <Settings2 className="h-3 w-3 text-muted hover:text-accent transition-colors" />
+          </button>
+        </>
+      )}
+    </motion.div>
+  )
+}

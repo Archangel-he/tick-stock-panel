@@ -112,7 +112,7 @@ reports/cursor_tickflow_pro_rate_limit_p0.bundle
 
 # Required exclusions for public repository
 .env
-data/
+/data/
 node_modules/
 frontend/dist/
 backend/static/
